@@ -12,6 +12,7 @@ import org.gotson.komga.infrastructure.mediacontainer.ContentDetector
 import org.gotson.komga.infrastructure.util.getZipEntryBytes
 import org.gotson.komga.infrastructure.util.use
 import org.springframework.stereotype.Service
+import java.nio.file.FileVisitOption
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.fileSize
@@ -34,9 +35,10 @@ class ImagesExtractor(
     path: Path,
     analyzeDimensions: Boolean,
   ): List<MediaContainerEntry> =
-    Files.list(path).use { dirStream ->
+    Files.walk(path, FileVisitOption.FOLLOW_LINKS).use { dirStream ->
       dirStream
         .asSequence()
+        .filter { Files.isRegularFile(it) }
         .map { filePath ->
           try {
             val mediaType = contentDetector.detectMediaType(filePath)
@@ -50,15 +52,17 @@ class ImagesExtractor(
                 null
               }
             val fileSize = filePath.fileSize()
+            val relativePath = path.relativize(filePath).toString().replace("\\", "/")
             MediaContainerEntry(
-              name = filePath.name,
+              name = relativePath,
               mediaType = mediaType,
               dimension = dimension,
               fileSize = fileSize,
             )
           } catch (e: Exception) {
-            logger.warn(e) { "Could not analyze entry: ${filePath.name}" }
-            MediaContainerEntry(name = filePath.name, comment = e.message)
+            val relativePath = path.relativize(filePath).toString().replace("\\", "/")
+            logger.warn(e) { "Could not analyze entry: $relativePath" }
+            MediaContainerEntry(name = relativePath, comment = e.message)
           }
         }
         .filterNotNull()
@@ -70,8 +74,8 @@ class ImagesExtractor(
     path: Path,
     entryName: String,
   ): ByteArray {
-    val filePath = path.parent.resolve(entryName)
-    if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+    val filePath = path.resolve(entryName)
+    if (!Files.exists(filePath)) {
       throw EntryNotFoundException("Entry does not exist: $entryName")
     }
     return Files.readAllBytes(filePath)

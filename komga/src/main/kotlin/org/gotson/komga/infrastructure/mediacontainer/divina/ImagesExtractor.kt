@@ -34,7 +34,7 @@ class ImagesExtractor(
     path: Path,
     analyzeDimensions: Boolean,
   ): List<MediaContainerEntry> =
-    Files.list(path.parent).use { dirStream ->
+    Files.list(path).use { dirStream ->
       dirStream
         .asSequence()
         .map { filePath ->

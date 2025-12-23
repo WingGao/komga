@@ -1,5 +1,9 @@
 package org.gotson.komga.domain.model
 
+import java.nio.file.Path
+import kotlin.io.path.isDirectory
+import kotlin.io.path.name
+
 enum class MediaType(
   val type: String,
   val profile: MediaProfile,
@@ -23,5 +27,9 @@ enum class MediaType(
     }
 
     fun matchingMediaProfile(mediaProfile: MediaProfile): Collection<MediaType> = entries.filter { it.profile == mediaProfile }
+
+    fun dirIsImages(dir: Path): Boolean {
+      return dir.isDirectory() && dir.name.endsWith(".${MediaType.IMAGES.fileExtension}")
+    }
   }
 }

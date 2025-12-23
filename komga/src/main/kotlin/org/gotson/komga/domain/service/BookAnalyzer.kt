@@ -63,7 +63,13 @@ class BookAnalyzer(
   ): Media {
     logger.info { "Trying to analyze book: $book" }
     return try {
-      var mediaType =
+      var mediaType: MediaType
+
+      // komga_images
+      if(MediaType.dirIsImages(book.path)) {
+        mediaType = MediaType.IMAGES
+      } else
+        mediaType =
         contentDetector.detectMediaType(book.path).let {
           logger.info { "Detected media type: $it" }
           MediaType.fromMediaType(it, book.path.extension) ?: return Media(mediaType = it, status = Media.Status.UNSUPPORTED, comment = "ERR_1001", bookId = book.id)

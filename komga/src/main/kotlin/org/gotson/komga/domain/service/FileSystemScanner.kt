@@ -3,6 +3,7 @@ package org.gotson.komga.domain.service
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.gotson.komga.domain.model.Book
 import org.gotson.komga.domain.model.DirectoryNotFoundException
+import org.gotson.komga.domain.model.MediaType
 import org.gotson.komga.domain.model.ScanResult
 import org.gotson.komga.domain.model.Series
 import org.gotson.komga.domain.model.Sidecar
@@ -112,6 +113,8 @@ class FileSystemScanner(
             attrs: BasicFileAttributes,
           ): FileVisitResult {
             logger.trace { "visitFile: $file (regularFile:${attrs.isRegularFile}, directory:${attrs.isDirectory}, symbolicLink:${attrs.isSymbolicLink}, other:${attrs.isOther})" }
+            if(MediaType.dirIsImages(file.parent)) return FileVisitResult.SKIP_SIBLINGS
+
             if (!attrs.isSymbolicLink && !attrs.isDirectory) {
               if (scanForExtensions.contains(file.extension.lowercase()) &&
                 !file.name.startsWith(".")
@@ -154,6 +157,16 @@ class FileSystemScanner(
             exc: IOException?,
           ): FileVisitResult {
             logger.trace { "postVisit: $dir" }
+
+            // komga_images
+            if(MediaType.dirIsImages(dir)){
+              val book = pathToBook(dir, dir.readAttributes())
+              dir.parent.let { key ->
+                pathToBooks.merge(key, mutableListOf(book)) { prev, one -> prev.union(one).toMutableList() }
+              }
+              return FileVisitResult.CONTINUE
+            }
+
             val books = pathToBooks[dir]
             val tempSeries = pathToSeries[dir]
             if (!books.isNullOrEmpty() && tempSeries !== null) {

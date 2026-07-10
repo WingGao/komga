@@ -21,3 +21,16 @@
 ## 测试
 
 账户： `admin@local.com`  密码: `1`
+
+
+## 打包
+
+```
+cd komga-webui
+pnpm install
+pnpm run build
+
+./gradlew bootJar
+
+komga\build\libs\komga-xxx.jar
+```

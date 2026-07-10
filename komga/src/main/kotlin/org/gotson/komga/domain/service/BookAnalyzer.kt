@@ -152,7 +152,6 @@ class BookAnalyzer(
   ): Media {
     book.path.epub { epub ->
       val (resources, missingResources) = epubExtractor.getResources(epub).partition { it.fileSize != null }
-      val isFixedLayout = epubExtractor.isFixedLayout(epub)
       val isKepub = epubExtractor.isKepub(epub, resources)
 
       val errors = mutableListOf<String>()
@@ -186,12 +185,14 @@ class BookAnalyzer(
 
       val divinaPages =
         try {
-          epubExtractor.getDivinaPages(epub, isFixedLayout, analyzeDimensions)
+          epubExtractor.getDivinaPages(epub, analyzeDimensions)
         } catch (e: Exception) {
           logger.error(e) { "Error while getting EPUB Divina pages" }
           errors.add("ERR_1038")
           emptyList()
         }
+
+      val isFixedLayout = divinaPages.isNotEmpty() || epubExtractor.isFixedLayout(epub)
 
       val positions =
         try {
@@ -218,7 +219,7 @@ class BookAnalyzer(
         status = Media.Status.READY,
         pages = divinaPages,
         files = resources,
-        pageCount = epubExtractor.computePageCount(epub),
+        pageCount = if (divinaPages.isNotEmpty()) divinaPages.size else epubExtractor.computePageCount(epub),
         epubDivinaCompatible = divinaPages.isNotEmpty(),
         epubIsKepub = isKepub,
         extension =
@@ -271,26 +272,27 @@ class BookAnalyzer(
 
   fun getPoster(book: BookWithMedia): TypedBytes? =
     when (book.media.profile) {
-      MediaProfile.DIVINA ->
-        divinaExtractors[book.media.mediaType]
-          ?.getEntryStream(
-            book.book.path,
-            book.media.pages
-              .first()
-              .fileName,
-          )?.let {
-            TypedBytes(
-              it,
-              book.media.pages
-                .first()
-                .mediaType,
-            )
-          }
-
+      MediaProfile.DIVINA -> divinaExtractors[book.media.mediaType]?.getPoster(book)
       MediaProfile.PDF -> pdfExtractor.getPageContentAsImage(book.book.path, 1)
-      MediaProfile.EPUB -> epubExtractor.getCover(book.book.path)
+      MediaProfile.EPUB -> epubExtractor.getCover(book.book.path) ?: if (book.media.epubDivinaCompatible) divinaExtractors[MediaType.ZIP.type]?.getPoster(book) else null
       null -> null
     }
+
+  private fun DivinaExtractor.getPoster(book: BookWithMedia): TypedBytes =
+    this
+      .getEntryStream(
+        book.book.path,
+        book.media.pages
+          .first()
+          .fileName,
+      ).let {
+        TypedBytes(
+          it,
+          book.media.pages
+            .first()
+            .mediaType,
+        )
+      }
 
   @Throws(
     MediaNotReadyException::class,
